@@ -141,6 +141,12 @@
       border: 1px solid var(--primary);
     }
 
+    .status-badge.rest {
+      background: rgba(148, 163, 184, 0.1);
+      color: var(--text-sub);
+      border: 1px solid var(--card-border);
+    }
+
     /* Inspirasjonsbank */
     .bank-list {
       display: flex;
@@ -276,6 +282,11 @@
         <label for="had-sex" style="font-weight: 600;">Hatt samleie denne dagen</label>
       </div>
 
+      <div class="toggle-group">
+        <input type="checkbox" id="rest-day">
+        <label for="rest-day" style="font-weight: 600;">Registrer som hviledag / rolig dag</label>
+      </div>
+
       <div class="form-group">
         <label for="pos-select">Velg posisjon(er) fra banken</label>
         <select id="pos-select" multiple size="3"></select>
@@ -283,7 +294,7 @@
 
       <div class="form-group">
         <label for="day-notes">Notater / Egne ønsker</label>
-        <textarea id="day-notes" rows="3" placeholder="F.eks. stemning, spesielle ønsker..."></textarea>
+        <textarea id="day-notes" rows="3" placeholder="F.eks. stemning, kos, spesielle ønsker..."></textarea>
       </div>
 
       <button class="btn" onclick="saveDayLog()">Lagre</button>
@@ -311,12 +322,14 @@
   <script>
     const daysOfWeek = ['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag', 'Søndag'];
     
-    // Standard posisjonsbank
+    // Utvidet posisjonsbank
     let positionBank = JSON.parse(localStorage.getItem('positionBank')) || [
-      { id: 1, title: 'Misjonær', desc: 'Klassisk posisjon ansikt til ansikt som gir god intimitet og mulighet for øyekontakt og kyssing.' },
-      { id: 2, title: 'Skjeen', desc: 'Begge ligger på siden i samme retning. Svært avslappende, intim og behagelig posisjon.' },
-      { id: 3, title: 'Kvinne/Partner på topp', desc: 'Gir den som sitter øverst full kontroll over tempo, vinkel og dybde.' },
-      { id: 4, title: 'Bakfra (Doggy)', desc: 'Posisjon bakfra som gir mulighet for dyp penetrasjon og stimulering.' }
+      { id: 1, title: 'Misjonær', desc: 'Klassisk posisjon ansikt til ansikt som gir god intimitet, øyekontakt og mulighet for nærhet.' },
+      { id: 2, title: 'Skjeen', desc: 'Begge ligger på siden i samme retning. Svært avslappende, intim og behagelig posisjon som krever lite energi.' },
+      { id: 3, title: 'Kvinne/Partner på topp', desc: 'Gir den som sitter øverst full kontroll over tempo, vinkel, stimulering og dybde.' },
+      { id: 4, title: 'Bakfra (Doggy)', desc: 'Posisjon bakfra som gir mulighet for dyp penetrasjon og god stimulering.' },
+      { id: 5, title: 'Sittestillingen', desc: 'Den ene sitter på en stol eller sengekant mens partneren sitter imot ansikt til ansikt. Gir god nærhet.' },
+      { id: 6, title: 'Kanten av sengen', desc: 'Partneren ligger på rygg med hoftene ytterst på sengekanten, noe som gir en god og fleksibel vinkel.' }
     ];
 
     // Logg for uken
@@ -333,20 +346,31 @@
       container.innerHTML = '';
 
       daysOfWeek.forEach(day => {
-        const log = weekLog[day] || { hadSex: false, positions: [], notes: '' };
+        const log = weekLog[day] || { hadSex: false, isRest: false, positions: [], notes: '' };
         const card = document.createElement('div');
         card.className = 'day-card';
         card.onclick = () => openDayModal(day);
 
-        const posText = log.positions.length > 0 ? `Posisjoner: ${log.positions.join(', ')}` : (log.notes || 'Ingen notater');
+        let badgeClass = '';
+        let badgeText = 'Ingen registrering';
+
+        if (log.hadSex) {
+          badgeClass = 'active';
+          badgeText = log.positions.length > 0 ? `❤️ ${log.positions.join(', ')}` : '❤️ Ja';
+        } else if (log.isRest) {
+          badgeClass = 'rest';
+          badgeText = '💤 Hviledag';
+        } else if (log.notes) {
+          badgeText = log.notes;
+        }
 
         card.innerHTML = `
           <div class="day-info">
             <h3>${day}</h3>
-            <p>${log.hadSex ? posText : 'Ingen registrering'}</p>
+            <p>${badgeText}</p>
           </div>
-          <div class="status-badge ${log.hadSex ? 'active' : ''}">
-            ${log.hadSex ? '❤️ Ja' : 'Nei'}
+          <div class="status-badge ${badgeClass}">
+            ${log.hadSex ? 'Aktiv' : (log.isRest ? 'Hvile' : '–')}
           </div>
         `;
         container.appendChild(card);
@@ -360,7 +384,6 @@
       select.innerHTML = '';
 
       positionBank.forEach(pos => {
-        // Render i listen
         const card = document.createElement('div');
         card.className = 'position-card';
         card.innerHTML = `
@@ -369,7 +392,6 @@
         `;
         container.appendChild(card);
 
-        // Render i select-boksen
         const opt = document.createElement('option');
         opt.value = pos.title;
         opt.innerText = pos.title;
@@ -380,9 +402,10 @@
     function openDayModal(day) {
       activeDay = day;
       document.getElementById('modal-day-name').innerText = `Registrer for ${day}`;
-      const log = weekLog[day] || { hadSex: false, positions: [], notes: '' };
+      const log = weekLog[day] || { hadSex: false, isRest: false, positions: [], notes: '' };
       
       document.getElementById('had-sex').checked = log.hadSex;
+      document.getElementById('rest-day').checked = log.isRest;
       document.getElementById('day-notes').value = log.notes || '';
       
       const select = document.getElementById('pos-select');
@@ -395,11 +418,12 @@
 
     function saveDayLog() {
       const hadSex = document.getElementById('had-sex').checked;
+      const isRest = document.getElementById('rest-day').checked;
       const notes = document.getElementById('day-notes').value;
       const select = document.getElementById('pos-select');
       const selectedPositions = Array.from(select.selectedOptions).map(opt => opt.value);
 
-      weekLog[activeDay] = { hadSex, positions: selectedPositions, notes };
+      weekLog[activeDay] = { hadSex, isRest, positions: selectedPositions, notes };
       localStorage.setItem('weekLog', JSON.stringify(weekLog));
       
       closeModal('day-modal');
@@ -449,4 +473,3 @@
   </script>
 </body>
 </html>
-
